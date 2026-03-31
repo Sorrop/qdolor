@@ -1,6 +1,6 @@
 (ns qdolor.core)
 
-(defprotocol QueueBackend
+(defprotocol QBackend
   (dequeue! [this]  "Take next task from queue. Returns task or nil.")
   (succeed! [this task] "Mark task as successfully completed.")
   (fail! [this task] "Mark task as failed")
@@ -8,7 +8,7 @@
   (abandon! [this task] "Arbitrary, user defined action to perform when a task is not ready and will not be requeued")
   (on-unexpected-error [this ctx throwable] "Debug method. Use this when anything except task's execute! throws"))
 
-(defprotocol Task
+(defprotocol QTask
   (task-id [this] "Return task's unique identifier")
   (ready? [this ctx]   "Only if this fn returns true, task should be executed")
   (execute! [this ctx] "Run the task. Return result or throw")
@@ -17,10 +17,6 @@
   (on-unreadiness! [this ctx policy] "This is called in case an unreadiness policy is returned with any other :action than :requeue")
   (on-failure! [this ctx policy throwable] "Called after failed execute!")
   (get-failure-policy [this ctx throwable]  "Returns a policy map with an :action key. If said key is :requeue, the task is re-inserted into the queue and an accompanying :requeue-opts key will be passed to requeue!. Otherwise, on-failure! is called."))
-
-(defprotocol WorkerPool
-  (start! [this])
-  (stop! [this]))
 
 (defn task-handler
   [task ctx]
