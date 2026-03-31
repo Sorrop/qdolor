@@ -10,6 +10,7 @@
 
 (defprotocol QTask
   (task-id [this] "Return task's unique identifier")
+  (get-raw [this] "Returns raw task data")
   (ready? [this ctx]   "Only if this fn returns true, task should be executed")
   (execute! [this ctx] "Run the task. Return result or throw")
   (on-complete! [this ctx result] "Called after successful execute!")
