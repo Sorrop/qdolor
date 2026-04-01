@@ -5,7 +5,9 @@
   "yyyy-MM-dd HH:mm:ss.SSS")
 
 (defn timestamp []
-  (java-time/format (java-time/formatter log-datetime-format) (java-time/local-date-time)))
+  (java-time/format
+    (java-time/formatter log-datetime-format)
+    (java-time/local-date-time)))
 
 (defn from-timestamp [t]
   (java-time/local-date-time log-datetime-format t))

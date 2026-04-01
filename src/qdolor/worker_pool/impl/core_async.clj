@@ -42,3 +42,11 @@
       (doseq [w-c (.-workers this)]
         (async/close! w-c))
       (async/close! stop-ch))))
+
+(defn async-worker-pool
+  [{:keys [queue-backend num-workers poll-interval-ms]}]
+  (->AsyncWorkerPool queue-backend
+                     num-workers
+                     poll-interval-ms
+                     nil
+                     nil))
