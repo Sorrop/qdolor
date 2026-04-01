@@ -95,6 +95,18 @@
           (recur (vals @(:db exec-ctx)))))      
       (check-correctness exec-ctx))))
 
+(defn concurrent-correct
+  [{:keys [db]}]
+  (let [tasks (-> @db vals)]
+    (doseq [[_ common] (->> (group-by :finished-at tasks)
+                            (reduce-kv (fn [acc k v]
+                                         (conj acc [k v]))
+                                       []))
+            :let [all-depend-ons (map (comp set :depends-on) common)]]
+      (doseq [t    common
+              :let [id (:id t)]]
+        (is (empty? (filter #(contains? % id) all-depend-ons)))))))
+
 (deftest async-worker-pool-test
   (testing "Small example"
     (let [queue       (async/chan)
@@ -123,5 +135,7 @@
                             :task-set            task-set
                             :task-sleeps         1
                             :completion-interval 10000})]
-      (check-correctness exec-ctx))))
+      (check-correctness exec-ctx)
+      (testing "Concurrently executed tasks should not depend between themselves"
+        (concurrent-correct exec-ctx)))))
 
