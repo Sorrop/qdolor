@@ -13,6 +13,18 @@
    {:id :b :depends-on [:c]}
    {:id :c :depends-on []}])
 
+(defn gen-tasks
+  [num-tasks max-deps]
+  (reduce (fn [acc i]
+            (let [id           (keyword (str i))
+                  available    (mapv :id acc)
+                  max-possible (min max-deps (count available))
+                  num-deps     (rand-int (inc max-possible))
+                  depends-on   (vec (take num-deps (shuffle available)))]
+              (conj acc {:id id :depends-on depends-on})))
+          []
+          (range num-tasks)))
+
 (defn when-dependencies-finished
   [db task]
   (let [{:keys [depends-on]} task]
@@ -68,6 +80,19 @@
         (when-not (tasks-finished? all-tasks)
           (qd.core/worker-loop q-backend exec-ctx)
           (recur (vals @(:db exec-ctx)))))      
+      (check-correctness exec-ctx)))
+
+  (testing "Big example"
+    (let [queue     (async/chan 1024)
+          q-backend (ca.test/queue-backend queue)
+          task-set  (gen-tasks 1024 300)
+          exec-ctx  (run {:queue               queue
+                          :task-set            task-set
+                          :task-sleeps         1})]
+      (loop [all-tasks (vals @(:db exec-ctx))]
+        (when-not (tasks-finished? all-tasks)
+          (qd.core/worker-loop q-backend exec-ctx)
+          (recur (vals @(:db exec-ctx)))))      
       (check-correctness exec-ctx))))
 
 (deftest async-worker-pool-test
@@ -82,6 +107,21 @@
                             :queue               queue
                             :task-set            example-tasks
                             :task-sleeps         2000
+                            :completion-interval 10000})]
+      (check-correctness exec-ctx)))
+
+  (testing "Big example"
+    (let [queue       (async/chan 1024)
+          q-backend   (ca.test/queue-backend queue)
+          task-set    (gen-tasks 1024 300)
+          worker-pool (qd.async/async-worker-pool
+                        {:queue-backend    q-backend
+                         :num-workers      32
+                         :poll-interval-ms 1})
+          exec-ctx    (run {:worker-pool         worker-pool
+                            :queue               queue
+                            :task-set            task-set
+                            :task-sleeps         1
                             :completion-interval 10000})]
       (check-correctness exec-ctx))))
 
