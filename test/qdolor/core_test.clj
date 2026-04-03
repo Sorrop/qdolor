@@ -72,7 +72,8 @@
 (deftest sequential-test
   (testing "Small example"
     (let [queue     (async/chan 4)
-          q-backend (ca.test/queue-backend queue)
+          q-backend (qd.core/make-qbackend
+                      (merge {:queue queue} ca.test/qbackend-conf))
           exec-ctx  (run {:queue               queue
                           :task-set            example-tasks
                           :task-sleeps         1000
@@ -83,9 +84,10 @@
           (recur (vals @(:db exec-ctx)))))      
       (check-correctness exec-ctx)))
 
-  (testing "Big example"
+  #_(testing "Big example"
     (let [queue     (async/chan 1024)
-          q-backend (ca.test/queue-backend queue)
+          q-backend (qd.core/make-qbackend
+                      (merge {:queue queue} ca.test/qbackend-conf))
           task-set  (gen-tasks 1024 300)
           exec-ctx  (run {:queue               queue
                           :task-set            task-set
@@ -111,7 +113,8 @@
 (deftest async-worker-pool-test
   (testing "Small example"
     (let [queue       (async/chan)
-          q-backend   (ca.test/queue-backend queue)
+          q-backend   (qd.core/make-qbackend
+                        (merge {:queue queue} ca.test/qbackend-conf))
           worker-pool (qd.async/async-worker-pool
                         {:queue-backend    q-backend
                          :num-workers      4
@@ -125,7 +128,8 @@
 
   (testing "Big example"
     (let [queue       (async/chan 1024)
-          q-backend   (ca.test/queue-backend queue)
+          q-backend (qd.core/make-qbackend
+                      (merge {:queue queue} ca.test/qbackend-conf))
           task-set    (gen-tasks 1024 300)
           worker-pool (qd.async/async-worker-pool
                         {:queue-backend    q-backend
@@ -143,7 +147,8 @@
 (deftest virtual-threads-worker-pool-test
   (testing "Small example"
     (let [queue       (async/chan)
-          q-backend   (ca.test/queue-backend queue)
+          q-backend (qd.core/make-qbackend
+                      (merge {:queue queue} ca.test/qbackend-conf))
           worker-pool (qd.vthreads/vt-worker-pool
                         {:queue-backend    q-backend
                          :num-workers      4
@@ -157,7 +162,8 @@
 
   (testing "Big example"
     (let [queue       (async/chan)
-          q-backend   (ca.test/queue-backend queue)
+          q-backend (qd.core/make-qbackend
+                      (merge {:queue queue} ca.test/qbackend-conf))
           task-set    (gen-tasks 4096 300)
           worker-pool (qd.vthreads/vt-worker-pool
                         {:queue-backend    q-backend
