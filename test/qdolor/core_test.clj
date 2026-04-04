@@ -6,6 +6,7 @@
             [qdolor.worker-pool.impl.vthreads :as qd.vthreads]
             [qdolor.core :as qd.core]
             [qdolor.core-async-test :as ca.test]
+            [qdolor.errors-test :as er.test]
             [qdolor.test-utils :as t.utils]))
 
 (def example-tasks
@@ -52,10 +53,11 @@
   (atom (zipmap (map :id task-set) task-set)))
 
 (defn run
-  [{:keys [worker-pool queue task-set task-sleeps completion-interval]}]
+  [{:keys [worker-pool queue task-set task-sleeps completion-interval ctx]}]
   (let [db  (init-db task-set)
-        ctx {:db          db
-             :task-sleeps task-sleeps}]
+        ctx (merge ctx
+                   {:db          db
+                    :task-sleeps task-sleeps})]
     (when worker-pool
       (.start! worker-pool ctx))  
 
@@ -213,3 +215,36 @@
       (check-correctness exec-ctx)
       (testing "Concurrently executed tasks should not depend between themselves"
         (concurrent-correct exec-ctx)))))
+
+(deftest failure-test
+  (testing "Throwable contains task in applicable phases"
+    (let [applicable-phases [:ack
+                             :nack
+                             :requeue
+                             :abandon
+                             :ready?
+                             :on-complete
+                             :get-unreadiness-policy
+                             :on-unreadiness
+                             :get-failure-policy
+                             :on-failure]]
+      (doseq [phase applicable-phases
+              :let [queue       (async/chan 1)
+                    q-backend   (qd.core/make-qbackend
+                                  (merge {:queue queue}
+                                         er.test/qbackend-conf))
+                    task-set    [(assoc (first example-tasks)
+                                        :inject-error {phase true})]
+                    worker-pool (qd.async/async-worker-pool
+                                  {:queue-backend    q-backend
+                                   :num-workers      4
+                                   :poll-interval-ms 100})
+                    exec-ctx    (run {:worker-pool         worker-pool
+                                      :queue               queue
+                                      :task-set            task-set
+                                      :task-sleeps         5
+                                      :completion-interval 1000})
+                    db (:db exec-ctx)]]
+        (is (= phase (get-in @db [:injected-error :phase])))
+        (is (= (first task-set)
+               (get-in @db [:injected-error :task])))))))
