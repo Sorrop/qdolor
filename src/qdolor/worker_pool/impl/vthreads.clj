@@ -1,6 +1,7 @@
 (ns qdolor.worker-pool.impl.vthreads
   (:require [qdolor.worker-pool.core :as wp]
-            [qdolor.core :as qd])
+            [qdolor.core :as qd]
+            [qdolor.utils :as utils])
   (:import [java.util.concurrent Executors]))
 
 (defn vt-worker
@@ -24,17 +25,29 @@
           []
           (range num-workers)))
 
+(defn choose-executor [{:keys [backend-opt num-workers]}]
+  (if (or (not utils/virtual-threads-available?)
+          (= :platform-threads backend-opt))
+    (Executors/newFixedThreadPool num-workers)
+    (let [start-exec (.getMethod Executors
+                                 "newVirtualThreadPerTaskExecutor"
+                                 (into-array Class []))]
+      (.invoke start-exec nil (object-array 0)))))
+
 (deftype VTWorkerPool
     [queue-backend
      num-workers
      poll-interval-ms
+     backend-opt
      ^:volatile-mutable workers
      ^:volatile-mutable stop-signal
      ^:volatile-mutable executor]
     wp/WorkerPool
     (start! [this ctx]
       (let [stop-signal (atom nil)
-            executor    (Executors/newVirtualThreadPerTaskExecutor)
+            executor    (choose-executor
+                          {:backend-opt backend-opt
+                           :num-workers num-workers})
             workers     (get-vt-workers
                           {:executor executor
                            :queue-backend queue-backend
@@ -58,5 +71,6 @@
 (defn vt-worker-pool
   [{:keys [queue-backend
            num-workers
-           poll-interval-ms]}]
-  (->VTWorkerPool queue-backend num-workers poll-interval-ms nil nil nil))
+           poll-interval-ms
+           backend-opt]}]
+  (->VTWorkerPool queue-backend num-workers poll-interval-ms backend-opt nil nil nil))
