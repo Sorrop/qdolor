@@ -84,14 +84,14 @@
           (recur (vals @(:db exec-ctx)))))      
       (check-correctness exec-ctx)))
 
-  #_(testing "Big example"
+  (testing "Big example"
     (let [queue     (async/chan 1024)
           q-backend (qd.core/make-qbackend
                       (merge {:queue queue} ca.test/qbackend-conf))
           task-set  (gen-tasks 1024 300)
-          exec-ctx  (run {:queue               queue
-                          :task-set            task-set
-                          :task-sleeps         1})]
+          exec-ctx  (run {:queue       queue
+                          :task-set    task-set
+                          :task-sleeps 1})]
       (loop [all-tasks (vals @(:db exec-ctx))]
         (when-not (tasks-finished? all-tasks)
           (qd.core/worker-loop q-backend exec-ctx)
@@ -181,7 +181,8 @@
 (deftest platform-threads-worker-pool-test
   (testing "Small example"
     (let [queue       (async/chan)
-          q-backend   (ca.test/queue-backend queue)
+          q-backend   (qd.core/make-qbackend
+                        (merge {:queue queue} ca.test/qbackend-conf))
           worker-pool (qd.vthreads/vt-worker-pool
                         {:queue-backend    q-backend
                          :backend-opt      :platform-threads
@@ -196,7 +197,8 @@
 
   (testing "Big example"
     (let [queue       (async/chan)
-          q-backend   (ca.test/queue-backend queue)
+          q-backend   (qd.core/make-qbackend
+                        (merge {:queue queue} ca.test/qbackend-conf))
           task-set    (gen-tasks 4096 300)
           worker-pool (qd.vthreads/vt-worker-pool
                         {:queue-backend    q-backend
