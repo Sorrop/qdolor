@@ -5,7 +5,7 @@
             [qdolor.worker-pool.impl.core-async :as qd.async]
             [qdolor.worker-pool.impl.vthreads :as qd.vthreads]
             [qdolor.core :as qd.core]
-            [qdolor.core-async-test :as ca.test]            
+            [qdolor.core-async-test :as ca.test]
             [qdolor.test-utils :as t.utils]))
 
 (def example-tasks
@@ -168,6 +168,40 @@
           worker-pool (qd.vthreads/vt-worker-pool
                         {:queue-backend    q-backend
                          :num-workers      32
+                         :poll-interval-ms 1})
+          exec-ctx    (run {:worker-pool         worker-pool
+                            :queue               queue
+                            :task-set            task-set
+                            :task-sleeps         1
+                            :completion-interval 1})]
+      (check-correctness exec-ctx)
+      (testing "Concurrently executed tasks should not depend between themselves"
+        (concurrent-correct exec-ctx)))))
+
+(deftest platform-threads-worker-pool-test
+  (testing "Small example"
+    (let [queue       (async/chan)
+          q-backend   (ca.test/queue-backend queue)
+          worker-pool (qd.vthreads/vt-worker-pool
+                        {:queue-backend    q-backend
+                         :backend-opt      :platform-threads
+                         :num-workers      4
+                         :poll-interval-ms 100})
+          exec-ctx    (run {:worker-pool         worker-pool
+                            :queue               queue
+                            :task-set            example-tasks
+                            :task-sleeps         2000
+                            :completion-interval 10000})]
+      (check-correctness exec-ctx)))
+
+  (testing "Big example"
+    (let [queue       (async/chan)
+          q-backend   (ca.test/queue-backend queue)
+          task-set    (gen-tasks 4096 300)
+          worker-pool (qd.vthreads/vt-worker-pool
+                        {:queue-backend    q-backend
+                         :backend-opt      :platform-threads
+                         :num-workers      16
                          :poll-interval-ms 1})
           exec-ctx    (run {:worker-pool         worker-pool
                             :queue               queue
