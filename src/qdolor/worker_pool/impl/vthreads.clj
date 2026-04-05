@@ -7,7 +7,7 @@
   (:require [qdolor.worker-pool.core :as wp]
             [qdolor.core :as qd]
             [qdolor.utils :as utils])
-  (:import [java.util.concurrent Executors]))
+  (:import [java.util.concurrent Executors ThreadFactory]))
 
 (defn- vt-worker
   "Returns a `Runnable` that polls the queue on a fixed interval until
@@ -38,6 +38,13 @@
           []
           (range num-workers)))
 
+(defn- thread-factory
+  []
+  (reify ThreadFactory
+    (newThread [_ r]
+      (doto (Thread/new r)
+        (.setDaemon true)))))
+
 (defn- choose-executor
   "Returns an executor appropriate for the runtime and `:backend-opt`.
 
@@ -47,7 +54,7 @@
   [{:keys [backend-opt num-workers]}]
   (if (or (not utils/virtual-threads-available?)
           (= :platform-threads backend-opt))
-    (Executors/newFixedThreadPool num-workers)
+    (Executors/newFixedThreadPool num-workers (thread-factory))
     (let [start-exec (.getMethod Executors
                                  "newVirtualThreadPerTaskExecutor"
                                  (into-array Class []))]
