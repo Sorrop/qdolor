@@ -82,7 +82,10 @@
                           :completion-interval 10000})]
       (loop [all-tasks (vals @(:db exec-ctx))]
         (when-not (tasks-finished? all-tasks)
-          (qd.core/worker-loop q-backend exec-ctx)
+          (qd.core/worker-loop
+            {:queue-backend q-backend
+             :ctx exec-ctx
+             :task-config ca.test/task-conf})
           (recur (vals @(:db exec-ctx)))))      
       (check-correctness exec-ctx)))
 
@@ -96,7 +99,10 @@
                           :task-sleeps 1})]
       (loop [all-tasks (vals @(:db exec-ctx))]
         (when-not (tasks-finished? all-tasks)
-          (qd.core/worker-loop q-backend exec-ctx)
+          (qd.core/worker-loop
+            {:queue-backend q-backend
+             :ctx exec-ctx
+             :task-config ca.test/task-conf})
           (recur (vals @(:db exec-ctx)))))      
       (check-correctness exec-ctx))))
 
@@ -119,6 +125,7 @@
                         (merge {:queue queue} ca.test/qbackend-conf))
           worker-pool (qd.async/async-worker-pool
                         {:queue-backend    q-backend
+                         :task-config      ca.test/task-conf
                          :num-workers      4
                          :poll-interval-ms 100})
           exec-ctx    (run {:worker-pool         worker-pool
@@ -135,6 +142,7 @@
           task-set    (gen-tasks 1024 300)
           worker-pool (qd.async/async-worker-pool
                         {:queue-backend    q-backend
+                         :task-config      ca.test/task-conf
                          :num-workers      32
                          :poll-interval-ms 1})
           exec-ctx    (run {:worker-pool         worker-pool
@@ -153,6 +161,7 @@
                       (merge {:queue queue} ca.test/qbackend-conf))
           worker-pool (qd.vthreads/vt-worker-pool
                         {:queue-backend    q-backend
+                         :task-config      ca.test/task-conf
                          :num-workers      4
                          :poll-interval-ms 100})
           exec-ctx    (run {:worker-pool         worker-pool
@@ -169,6 +178,7 @@
           task-set    (gen-tasks 4096 300)
           worker-pool (qd.vthreads/vt-worker-pool
                         {:queue-backend    q-backend
+                         :task-config      ca.test/task-conf
                          :num-workers      32
                          :poll-interval-ms 1})
           exec-ctx    (run {:worker-pool         worker-pool
@@ -187,6 +197,7 @@
                         (merge {:queue queue} ca.test/qbackend-conf))
           worker-pool (qd.vthreads/vt-worker-pool
                         {:queue-backend    q-backend
+                         :task-config      ca.test/task-conf
                          :backend-opt      :platform-threads
                          :num-workers      4
                          :poll-interval-ms 100})
@@ -204,6 +215,7 @@
           task-set    (gen-tasks 4096 300)
           worker-pool (qd.vthreads/vt-worker-pool
                         {:queue-backend    q-backend
+                         :task-config      ca.test/task-conf
                          :backend-opt      :platform-threads
                          :num-workers      16
                          :poll-interval-ms 1})
@@ -237,6 +249,7 @@
                                         :inject-error {phase true})]
                     worker-pool (qd.async/async-worker-pool
                                   {:queue-backend    q-backend
+                                   :task-config      er.test/task-conf
                                    :num-workers      4
                                    :poll-interval-ms 100})
                     exec-ctx    (run {:worker-pool         worker-pool

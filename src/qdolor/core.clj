@@ -123,26 +123,28 @@
       {:status :errored
        :err    t})))
 
-(defn worker-loop [queue-backend ctx]
+(defn worker-loop
+  [{:keys [queue-backend ctx task-config]}]
   (try
-    (when-let [task (dequeue! queue-backend)]
-      (if (ready? task ctx)
-        (let [{:keys [status result err]} (task-handler task ctx)]
-          (if (= status :completed)
-            (do (on-complete! task ctx result)
-                (ack! queue-backend task))
-            (let [{:keys [action requeue-opts]
-                   :as   failure-policy} (get-failure-policy task ctx err)]
-              (if (= action :requeue)
-                (requeue! queue-backend task requeue-opts)
-                (do
-                  (on-failure! task ctx failure-policy err)
-                  (nack! queue-backend task))))))
-        (let [{:keys [action requeue-opts]
-               :as   unreadiness-policy} (get-unreadiness-policy task ctx)]
-          (if (= action :requeue)
-            (requeue! queue-backend task requeue-opts)
-            (do (on-unreadiness! task ctx unreadiness-policy)
-                (abandon! queue-backend task))))))
+    (when-let [raw-task (dequeue! queue-backend)]
+      (let [task (make-qtask (merge task-config {:task raw-task} ))]
+        (if (ready? task ctx)
+          (let [{:keys [status result err]} (task-handler task ctx)]
+            (if (= status :completed)
+              (do (on-complete! task ctx result)
+                  (ack! queue-backend task))
+              (let [{:keys [action requeue-opts]
+                     :as   failure-policy} (get-failure-policy task ctx err)]
+                (if (= action :requeue)
+                  (requeue! queue-backend task requeue-opts)
+                  (do
+                    (on-failure! task ctx failure-policy err)
+                    (nack! queue-backend task))))))
+          (let [{:keys [action requeue-opts]
+                 :as   unreadiness-policy} (get-unreadiness-policy task ctx)]
+            (if (= action :requeue)
+              (requeue! queue-backend task requeue-opts)
+              (do (on-unreadiness! task ctx unreadiness-policy)
+                  (abandon! queue-backend task)))))))
     (catch Throwable t
       (on-unexpected-error! queue-backend ctx t))))

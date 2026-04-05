@@ -4,7 +4,7 @@
             [clojure.core.async :as async]))
 
 (defn make-io-chans
-  [{:keys [queue-backend num-workers ctx stop-ch poll-interval-ms]
+  [{:keys [queue-backend task-config num-workers ctx stop-ch poll-interval-ms]
     :or   {poll-interval-ms 1000}}]
   (reduce (fn [acc i]
             (let [ctx  (assoc ctx :worker i)
@@ -13,7 +13,10 @@
                            
                            (when-not (= (async/poll! stop-ch) :shutdown)
                              (Thread/sleep poll-interval-ms)
-                             (qd/worker-loop queue-backend ctx)
+                             (qd/worker-loop
+                               {:queue-backend queue-backend
+                                :ctx           ctx
+                                :task-config   task-config})
                              (recur))))]
               (conj acc chan)))
           []
@@ -21,6 +24,7 @@
 
 (deftype AsyncWorkerPool
     [queue-backend
+     task-config
      num-workers
      poll-interval-ms
      ^:volatile-mutable workers
@@ -30,6 +34,7 @@
     (let [stop-ch (async/promise-chan)
           chans   (make-io-chans
                     {:queue-backend    queue-backend
+                     :task-config      task-config
                      :num-workers      num-workers
                      :ctx              ctx
                      :stop-ch          stop-ch
@@ -44,8 +49,9 @@
       (async/close! stop-ch))))
 
 (defn async-worker-pool
-  [{:keys [queue-backend num-workers poll-interval-ms]}]
+  [{:keys [queue-backend task-config num-workers poll-interval-ms]}]
   (->AsyncWorkerPool queue-backend
+                     task-config
                      num-workers
                      poll-interval-ms
                      nil

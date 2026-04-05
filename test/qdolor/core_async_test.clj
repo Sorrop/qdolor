@@ -54,7 +54,8 @@
 (def qbackend-conf
   {:dequeue
    (fn dequeue! [queue]
-     (when-let [t (async/poll! queue)]
+     (async/poll! queue)
+     #_(when-let [t (async/poll! queue)]
        (qd/make-qtask (assoc task-conf :task t))))
 
    :ack

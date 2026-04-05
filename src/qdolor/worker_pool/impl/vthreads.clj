@@ -5,19 +5,23 @@
   (:import [java.util.concurrent Executors]))
 
 (defn vt-worker
-  [{:keys [poll-interval-ms stop-signal queue-backend ctx]}]
+  [{:keys [poll-interval-ms stop-signal queue-backend ctx task-config]}]
   (fn []
     (while (not= @stop-signal :shutdown)
       (Thread/sleep poll-interval-ms)
-      (qd/worker-loop queue-backend ctx))))
+      (qd/worker-loop
+        {:queue-backend queue-backend
+         :ctx           ctx
+         :task-config   task-config}))))
 
 (defn get-vt-workers
-  [{:keys [executor queue-backend num-workers ctx stop-signal poll-interval-ms]
+  [{:keys [executor queue-backend task-config num-workers ctx stop-signal poll-interval-ms]
     :or   {poll-interval-ms 1000}}]
   (reduce (fn [acc i]
             (->> (.submit executor
                          (vt-worker
                            {:queue-backend    queue-backend
+                            :task-config      task-config
                             :poll-interval-ms poll-interval-ms
                             :stop-signal      stop-signal
                             :ctx              (merge {:worker i} ctx)}))
@@ -36,6 +40,7 @@
 
 (deftype VTWorkerPool
     [queue-backend
+     task-config
      num-workers
      poll-interval-ms
      backend-opt
@@ -51,6 +56,7 @@
             workers     (get-vt-workers
                           {:executor executor
                            :queue-backend queue-backend
+                           :task-config task-config
                            :num-workers num-workers
                            :ctx         ctx
                            :stop-signal stop-signal
@@ -70,7 +76,15 @@
 
 (defn vt-worker-pool
   [{:keys [queue-backend
+           task-config
            num-workers
            poll-interval-ms
            backend-opt]}]
-  (->VTWorkerPool queue-backend num-workers poll-interval-ms backend-opt nil nil nil))
+  (->VTWorkerPool queue-backend
+                  task-config
+                  num-workers
+                  poll-interval-ms
+                  backend-opt
+                  nil
+                  nil
+                  nil))
