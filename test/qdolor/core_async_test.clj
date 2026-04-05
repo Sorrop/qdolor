@@ -1,6 +1,5 @@
 (ns qdolor.core-async-test
   (:require [clojure.core.async :as async]
-            [qdolor.core :as qd]
             [qdolor.test-utils :as t.utils]))
 
 (def task-conf
@@ -54,9 +53,7 @@
 (def qbackend-conf
   {:dequeue
    (fn dequeue! [queue]
-     (async/poll! queue)
-     #_(when-let [t (async/poll! queue)]
-       (qd/make-qtask (assoc task-conf :task t))))
+     (async/poll! queue))
 
    :ack
    (fn ack! [_this task]

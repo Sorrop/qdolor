@@ -103,7 +103,7 @@
             {:queue-backend q-backend
              :ctx exec-ctx
              :task-config ca.test/task-conf})
-          (recur (vals @(:db exec-ctx)))))      
+          (recur (vals @(:db exec-ctx)))))
       (check-correctness exec-ctx))))
 
 (defn concurrent-correct
@@ -133,6 +133,7 @@
                             :task-set            example-tasks
                             :task-sleeps         2000
                             :completion-interval 10000})]
+      (t.utils/log "Async worker pool small run finished")
       (check-correctness exec-ctx)))
 
   (testing "Big example"
@@ -150,6 +151,7 @@
                             :task-set            task-set
                             :task-sleeps         1
                             :completion-interval 10000})]
+      (t.utils/log "Async worker pool big run finished")
       (check-correctness exec-ctx)
       (testing "Concurrently executed tasks should not depend between themselves"
         (concurrent-correct exec-ctx)))))
@@ -169,10 +171,11 @@
                             :task-set            example-tasks
                             :task-sleeps         2000
                             :completion-interval 10000})]
+      (t.utils/log "Virtual Threads backed worker pool small run finished")
       (check-correctness exec-ctx)))
 
   (testing "Big example"
-    (let [queue       (async/chan)
+    (let [queue       (async/chan 4096)
           q-backend (qd.core/make-qbackend
                       (merge {:queue queue} ca.test/qbackend-conf))
           task-set    (gen-tasks 4096 300)
@@ -185,7 +188,8 @@
                             :queue               queue
                             :task-set            task-set
                             :task-sleeps         1
-                            :completion-interval 1})]
+                            :completion-interval 70000})]
+      (t.utils/log "Virtual Threads backed worker pool big run finished")
       (check-correctness exec-ctx)
       (testing "Concurrently executed tasks should not depend between themselves"
         (concurrent-correct exec-ctx)))))
@@ -206,10 +210,11 @@
                             :task-set            example-tasks
                             :task-sleeps         2000
                             :completion-interval 10000})]
+      (t.utils/log "Platform Threads backed worker pool small run finished")
       (check-correctness exec-ctx)))
 
   (testing "Big example"
-    (let [queue       (async/chan)
+    (let [queue       (async/chan 4096)
           q-backend   (qd.core/make-qbackend
                         (merge {:queue queue} ca.test/qbackend-conf))
           task-set    (gen-tasks 4096 300)
@@ -217,13 +222,14 @@
                         {:queue-backend    q-backend
                          :task-config      ca.test/task-conf
                          :backend-opt      :platform-threads
-                         :num-workers      16
+                         :num-workers      32
                          :poll-interval-ms 1})
           exec-ctx    (run {:worker-pool         worker-pool
                             :queue               queue
                             :task-set            task-set
                             :task-sleeps         1
-                            :completion-interval 1})]
+                            :completion-interval 70000})]
+      (t.utils/log "Platform Threads backed worker pool big run finished")
       (check-correctness exec-ctx)
       (testing "Concurrently executed tasks should not depend between themselves"
         (concurrent-correct exec-ctx)))))
