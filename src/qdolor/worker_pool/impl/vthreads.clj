@@ -24,8 +24,7 @@
 (defn- get-vt-workers
   "Submits `num-workers` worker runnables to `executor`. Returns a vector of
   futures."
-  [{:keys [executor queue-backend task-config num-workers ctx stop-signal poll-interval-ms]
-    :or   {poll-interval-ms 1000}}]
+  [{:keys [executor queue-backend task-config num-workers ctx stop-signal poll-interval-ms]}]
   (reduce (fn [acc i]
             (->> (.submit executor
                           (vt-worker
@@ -111,7 +110,8 @@
            task-config
            num-workers
            poll-interval-ms
-           backend-opt]}]
+           backend-opt]
+    :or   {poll-interval-ms 1000}}]
   (->VTWorkerPool queue-backend
                   task-config
                   num-workers
