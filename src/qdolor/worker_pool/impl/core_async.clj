@@ -44,8 +44,7 @@
   (stop! [this]
     (let [stop-ch (.-stop-ch this)]
       (async/offer! stop-ch :shutdown)
-      (doseq [w-c (.-workers this)]
-        (async/close! w-c))
+      (async/<!! (async/merge (.-workers this)))
       (async/close! stop-ch))))
 
 (defn async-worker-pool
