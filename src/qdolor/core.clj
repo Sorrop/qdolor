@@ -1,6 +1,13 @@
 (ns qdolor.core)
 
 (defmacro wrapped-call
+  ([phase body]
+   `(try
+      ~body
+      (catch Throwable t#
+        (throw (ex-info (format "Unexpected error on phase: %s" ~phase)
+                        {:phase ~phase}
+                        t#)))))
   ([phase task body]
    `(try
       ~body
@@ -9,13 +16,7 @@
                         {:phase ~phase
                          :task  (.get-raw ~task)}
                         t#)))))
-  ([phase body]
-   `(try
-      ~body
-      (catch Throwable t#
-        (throw (ex-info (format "Unexpected error on phase: %s" ~phase)
-                        {:phase ~phase}
-                        t#))))))
+  )
 
 (defprotocol QBackend
   (dequeue! [this]  "Take next task from queue. Returns task or nil.")
