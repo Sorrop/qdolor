@@ -1,4 +1,4 @@
-(defproject qdolor "0.1.0-SNAPSHOT"
+(defproject net.clojars.sorrop/qdolor "0.1.0-SNAPSHOT"
   :description "Toolset for queue based execution by concurrent workers"
   :url "https://github.com/Sorrop/qdolor"
 
@@ -8,7 +8,11 @@
   :dependencies [[org.clojure/clojure "1.12.2"]
                  [org.clojure/core.async "1.9.865"]]
 
-  :plugins [[lein-codox "0.10.8"]]
+  :repositories [["releases" {:url   "https://repo.clojars.org"
+                              :creds :gpg}]]
+
+  :plugins [[lein-codox "0.10.8"]
+            [lein-set-version "0.4.1"]]
 
   :profiles {:dev {:dependencies [[clojure.java-time "0.3.2"]]}}
 
@@ -19,5 +23,15 @@
                         qdolor.worker-pool.impl.core-async
                         qdolor.worker-pool.impl.vthreads]
           :metadata    {:doc/format :markdown}}
+
+  :release-tasks [["vcs" "assert-committed"]
+                  ["change" "version" "leiningen.release/bump-version" "release"]
+                  ["codox"]
+                  ["vcs" "commit"]
+                  ["vcs" "tag" "--no-sign"]
+                  ["deploy" "clojars"]
+                  ["change" "version" "leiningen.release/bump-version"]
+                  ["vcs" "commit"]
+                  ["vcs" "push"]]
 
   :repl-options {:init-ns user})
