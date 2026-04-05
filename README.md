@@ -1,5 +1,7 @@
 # qdolor
 
+[![Clojars Project](https://img.shields.io/clojars/v/net.clojars.sorrop/qdolor.svg)](https://clojars.org/net.clojars.sorrop/qdolor)
+
 A Clojure library for queue-based execution of tasks by concurrent workers.
 
 qdolor provides the consumer-side framework for processing tasks from a queue. It handles the worker loop, failure and unreadiness policies, and error propagation. 
@@ -10,7 +12,7 @@ How tasks are produced and what queue system backs the queue are left entirely t
 Add to your `project.clj` dependencies:
 
 ```clojure
-[qdolor "0.1.0-SNAPSHOT"] ;; TODO: fix the reference when added to clojars
+[net.clojars.sorrop/qdolor "0.1.0"]
 ```
 
 ## Concepts
