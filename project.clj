@@ -14,7 +14,13 @@
   :plugins [[lein-codox "0.10.8"]
             [lein-set-version "0.4.1"]]
 
-  :profiles {:dev {:dependencies [[clojure.java-time "0.3.2"]]}}
+  :profiles {:dev {:dependencies [[clojure.java-time "0.3.2"]
+                                  [clj-test-containers "0.7.4"
+                                   :exclusions [org.testcontainers/testcontainers]]
+                                  [org.testcontainers/testcontainers "2.0.3"]
+                                  [org.testcontainers/testcontainers-postgresql "2.0.3"]
+                                  [com.github.seancorfield/next.jdbc "1.3.1093"]
+                                  [org.postgresql/postgresql "42.7.10"]]}}
 
   :codox {:output-path "docs"
           :source-uri  "https://github.com/Sorrop/qdolor/blob/master/{filepath}#L{line}"
