@@ -52,26 +52,26 @@
 
 (def qbackend-conf
   {:dequeue
-   (fn dequeue! [queue]
+   (fn dequeue! [queue _ctx]
      (async/poll! queue))
 
    :ack
-   (fn ack! [_this task]
+   (fn ack! [_this task _]
      (t.utils/log (format "Task `%s` succeeded" (.task-id task))))
 
    :nack
-   (fn nack! [_this task]
+   (fn nack! [_this task _]
      (t.utils/log (format "Task `%s` failed" (.task-id task))))
 
    :requeue
-   (fn requeue! [queue task _opts]
+   (fn requeue! [queue task _opts _]
      (async/>!! queue (.get-raw task)))
 
    :abandon
-   (fn abandon! [_this task]
+   (fn abandon! [_this task _]
      (t.utils/log (format "Task `%s` abandoned" (.task-id task))))
 
    :on-unexpected-error
    (fn on-unexpected-error
-     [_this _ctx throwable _maybe-task]
+     [_this _ctx throwable]
      (t.utils/log (format "Error: %s" (Throwable->map throwable))))})
