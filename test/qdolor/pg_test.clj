@@ -3,6 +3,9 @@
             [next.jdbc.result-set :as rs]
             [qdolor.test-utils :as t.utils]))
 
+(defn queue-empty? [db-spec]
+  (empty? (next.jdbc/execute! db-spec ["select * from queue"])))
+
 (def lock-q
   "SELECT * 
    FROM queue 
@@ -13,6 +16,20 @@
 (defn delete-task
   [id]
   (format "DELETE FROM queue WHERE id = %s" id))
+
+(def get-results
+  "SELECT * FROM results;")
+
+(defn db-results [db-spec]
+  (next.jdbc/execute! db-spec [get-results] {:builder-fn rs/as-unqualified-lower-maps}))
+
+(defn init-result [conn task-id]
+  (let [q (format "INSERT INTO results(task_id) values(%s);" task-id)]
+    (next.jdbc/execute! conn [q])))
+
+(defn set-result [conn task-id status]
+  (let [q (format "UPDATE results SET status = '%s', finished_at = clock_timestamp() WHERE task_id = %s" status task-id)]
+    (next.jdbc/execute! conn [q])))
 
 (defn remove-task [conn id]
   (next.jdbc/execute! conn [(delete-task id)]
@@ -97,14 +114,21 @@
      true)
 
    :execute
-   (fn execute! [_this ctx]
-     (let [{:keys [task-sleeps]} ctx]
+   (fn execute! [this ctx]
+     (let [{:keys [task-sleeps]} ctx
+           db-conn @(resolve-conn ctx)
+           id (.task-id this)]
+       (init-result db-conn id)      
+       
        (Thread/sleep task-sleeps)
        {:status :success}))
 
    :on-complete
    (fn on-complete! [this ctx result]
-     (println "completed"))
+     (let [db-conn @(resolve-conn ctx)
+           id (.task-id this)
+           status (str (:status result))]
+       (set-result db-conn id status)))
 
    :get-unreadiness-policy
    (fn get-unreadiness-policy [_this _ctx]

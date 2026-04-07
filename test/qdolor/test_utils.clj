@@ -61,7 +61,7 @@
                        jdbc/get-connection)]
     (jdbc/execute! conn cmd {:builder-fn rs/as-unqualified-lower-maps})))
 
-(defn prepare-db [jdbc-url]
+(defn reset-db [jdbc-url total-tasks]
   (with-open [conn (-> {:jdbcUrl jdbc-url}
                        jdbc/get-datasource
                        jdbc/get-connection)]
@@ -69,8 +69,13 @@
     (jdbc/execute! conn ["DROP TABLE IF EXISTS results;"])
     (jdbc/execute! conn [create-q-table])
     (jdbc/execute! conn [create-results-table])
-    (jdbc/execute! conn [(n-tasks 50)])))
+    (jdbc/execute! conn [(n-tasks total-tasks)])))
 
+(defn set-up-pg [total-tasks]
+  (let [pg (pg-container)
+        jdbc-url (cont->jdbc-url pg)]
+    (reset-db jdbc-url total-tasks)
+    {:container pg :jdbc-url jdbc-url}))
 
 (comment
   (def cont (qdolor.test-utils/pg-container))
