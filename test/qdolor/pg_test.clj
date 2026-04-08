@@ -125,10 +125,10 @@
 
    :on-complete
    (fn on-complete! [this ctx result]
-     (let [db-conn @(resolve-conn ctx)
+     (let [{:keys [jdbc-url]} ctx
            id (.task-id this)
            status (str (:status result))]
-       (set-result db-conn id status)))
+       (set-result jdbc-url id status)))
 
    :get-unreadiness-policy
    (fn get-unreadiness-policy [_this _ctx]

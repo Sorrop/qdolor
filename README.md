@@ -176,19 +176,19 @@ dequeue!
 ready? ──false──► get-unreadiness-policy
    │                      │
    │              {:action :requeue} → requeue!
-   │              other   → on-unreadiness! → abandon!
+   │              other   →  abandon! → on-unreadiness!
    │
 true
    │
    ▼
 execute!
    │
-   ├── success ──► on-complete! → ack!
+   ├── success ──► ack! → on-complete!
    │
    └── throws ──► get-failure-policy
                          │
                  {:action :requeue} → requeue!
-                 other    → on-failure! → nack!
+                 other  → nack! → on-failure!
 
 Any phase except execute! throwing ──► on-unexpected-error!
   (ex-data of throwable contains :phase and :task when available)
