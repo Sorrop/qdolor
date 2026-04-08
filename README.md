@@ -12,7 +12,7 @@ How tasks are produced and what queue system backs the queue are left entirely t
 Add to your `project.clj` dependencies:
 
 ```clojure
-[net.clojars.sorrop/qdolor "0.1.1"]
+[net.clojars.sorrop/qdolor "0.2.0"]
 ```
 
 ## Concepts
