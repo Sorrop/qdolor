@@ -72,27 +72,27 @@
 
 (def qbackend-conf
   {:dequeue
-   (fn dequeue! [queue]
+   (fn dequeue! [queue _ctx]
      (async/poll! queue))
 
    :ack
-   (fn ack! [_this task]
+   (fn ack! [_this task _]
      (when (:ack (:inject-error (.get-raw task)))
        (throw (Exception. "Injected"))))
 
    :nack
-   (fn nack! [_this task]
+   (fn nack! [_this task _]
      (when (:nack (:inject-error (.get-raw task)))
        (throw (Exception. "Injected"))))
 
    :requeue
-   (fn requeue! [queue task _opts]
+   (fn requeue! [queue task _opts _]
      (when (:requeue (:inject-error (.get-raw task)))
        (throw (Exception. "Injected")))
      (async/>!! queue (.get-raw task)))
 
    :abandon
-   (fn abandon! [_this task]
+   (fn abandon! [_this task _]
      (when (:abandon (:inject-error (.get-raw task)))
        (throw (Exception. "Injected"))))
 

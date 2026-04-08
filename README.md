@@ -12,7 +12,7 @@ How tasks are produced and what queue system backs the queue are left entirely t
 Add to your `project.clj` dependencies:
 
 ```clojure
-[net.clojars.sorrop/qdolor "0.1.1"]
+[net.clojars.sorrop/qdolor "0.2.0"]
 ```
 
 ## Concepts
@@ -44,27 +44,27 @@ The library provided execution cycle.
     {:queue   the-queue
 
      :dequeue
-     (fn [queue]
+     (fn [queue _ctx]
        (async/poll! queue))
 
      :requeue
-     (fn [queue task _opts]
+     (fn [queue task _opts _ctx]
        (async/offer! queue (qd/get-raw task)))
 
      :ack
-     (fn [_this task]
+     (fn [queue task ctx]
        (println "Completed:" (qd/task-id task)))
 
      :nack
-     (fn [_this task]
+     (fn [queue task ctx]
        (println "Failed:" (qd/task-id task)))
 
      :abandon
-     (fn [_this task]
+     (fn [queue task ctx]
        (println "Abandoned:" (qd/task-id task)))
 
      :on-unexpected-error
-     (fn [_this _ctx throwable]
+     (fn [queue _ctx throwable]
        (println "Unexpected error:" (.getMessage throwable))
        ;; task (if available) is in (ex-data throwable) under :task
        ;; phase is in (ex-data throwable) under :phase
@@ -145,7 +145,7 @@ A task configuration is a map of functions shared across all tasks processed by 
      :num-workers      8
      :poll-interval-ms 100}))
 
-(.start! pool {:db my-db})
+(.start! pool {:cotext-map "here"})
 ```
 
 If on JDK >= 21 virtual threads are used by default unless `:platform-threads` is passed. 
@@ -176,19 +176,19 @@ dequeue!
 ready? ──false──► get-unreadiness-policy
    │                      │
    │              {:action :requeue} → requeue!
-   │              other   → on-unreadiness! → abandon!
+   │              other   →  abandon! → on-unreadiness!
    │
 true
    │
    ▼
 execute!
    │
-   ├── success ──► on-complete! → ack!
+   ├── success ──► ack! → on-complete!
    │
    └── throws ──► get-failure-policy
                          │
                  {:action :requeue} → requeue!
-                 other    → on-failure! → nack!
+                 other  → nack! → on-failure!
 
 Any phase except execute! throwing ──► on-unexpected-error!
   (ex-data of throwable contains :phase and :task when available)

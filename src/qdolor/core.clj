@@ -23,23 +23,24 @@
 (defprotocol QBackend
   "Represents a queue system. All methods except `on-unexpected-error!` 
    are automatically wrapped, enriched with phase and task context and 
-   routed to `on-unexpected-error!`."
+   routed to `on-unexpected-error!`. All methods except `on-unexpected-error!`
+   receive a context map as the last argument"
 
-  (dequeue! [this]
+  (dequeue! [this ctx]
     "Take the next task from the queue. Returns the raw task value, or nil if
     the queue is empty.")
 
-  (ack! [this task]
+  (ack! [this task ctx]
     "Mark a task as successfully completed.")
 
-  (nack! [this task]
+  (nack! [this task ctx]
     "Mark a task as failed.")
 
-  (requeue! [this task opts]
+  (requeue! [this task opts ctx]
     "Return a task to the queue. `opts` is the `:requeue-opts` map from the
      task's failure or unreadiness policy, and may contain hints such as delay.")
 
-  (abandon! [this task]
+  (abandon! [this task ctx]
     "Called when a task is not ready and its unreadiness policy action is not
     `:requeue`.")
 
@@ -55,16 +56,16 @@
 
   Required key:
 
-  - `:queue` — the queue object passed as the first argument to `:dequeue` and `:requeue`
+  - `:queue` — the queue object passed as the first argument all functions
 
   Optional keys (all default to no-ops):
 
-  - `:dequeue`             — `(fn [queue])` returns raw task data or nil
+  - `:dequeue`             — `(fn [queue ctx])`
   - `:requeue`             — `(fn [queue task opts])`
-  - `:ack`                 — `(fn [this task])`
-  - `:nack`                — `(fn [this task])`
-  - `:abandon`             — `(fn [this task])`
-  - `:on-unexpected-error` — `(fn [this ctx throwable])`"
+  - `:ack`                 — `(fn [queue task])`
+  - `:nack`                — `(fn [queue task])`
+  - `:abandon`             — `(fn [queue task])`
+  - `:on-unexpected-error` — `(fn [queue ctx throwable])`"
   [{:keys [queue
            dequeue
            requeue
@@ -72,31 +73,31 @@
            nack
            abandon
            on-unexpected-error]
-    :or {dequeue             (fn [_])
-         requeue             (fn [_ _ _])
-         ack                 (fn [_ _])
-         nack                (fn [_ _])
-         abandon             (fn [_ _])
+    :or {dequeue             (fn [_ _])
+         requeue             (fn [_ _ _ _])
+         ack                 (fn [_ _ _])
+         nack                (fn [_ _ _])
+         abandon             (fn [_ _ _])
          on-unexpected-error (fn [_ _ _])}}]
   (reify QBackend
 
-    (dequeue! [_this]
-      (wrapped-call :dequeue (dequeue queue)))
+    (dequeue! [_this ctx]
+      (wrapped-call :dequeue (dequeue queue ctx)))
 
-    (ack! [this task]
-      (wrapped-call :ack task (ack this task)))
+    (ack! [_this task ctx]
+      (wrapped-call :ack task (ack queue task ctx)))
 
-    (nack! [this task]
-      (wrapped-call :nack task (nack this task)))
+    (nack! [_this task ctx]
+      (wrapped-call :nack task (nack queue task ctx)))
 
-    (requeue! [_this task opts]
-      (wrapped-call :requeue task (requeue queue task opts)))
+    (requeue! [_this task opts ctx]
+      (wrapped-call :requeue task (requeue queue task opts ctx)))
 
-    (abandon! [this task]
-      (wrapped-call :abandon task (abandon this task)))
+    (abandon! [_this task ctx]
+      (wrapped-call :abandon task (abandon queue task ctx)))
 
-    (on-unexpected-error! [this ctx throwable]
-      (on-unexpected-error this ctx throwable))))
+    (on-unexpected-error! [_this ctx throwable]
+      (on-unexpected-error queue ctx throwable))))
 
 (defprotocol QTask
   "Specification of a task."
@@ -117,7 +118,7 @@
      and passed to `on-complete!`.")
 
   (on-complete! [this ctx result]
-    "Called after a successful `execute!`, before `ack!` is called on the
+    "Called after a successful `execute!` and after `ack!` is called on the
     backend.")
 
   (get-unreadiness-policy [this ctx]
@@ -128,7 +129,7 @@
     - `{:action <anything-else>}` — call `on-unreadiness!` then `abandon!`")
 
   (on-unreadiness! [this ctx policy]
-    "Applies any other unreadiness policy than :requeue before `abandon!` 
+    "Applies any other unreadiness policy than :requeue after `abandon!`
      is called on the backend.")
 
   (get-failure-policy [this ctx throwable]
@@ -138,7 +139,7 @@
     - `{:action <anything-else>}` — call `on-failure!` then `nack!`")
 
   (on-failure! [this ctx policy throwable]
-    "Applies any other failure policy than :requeue, before nack! is called
+    "Applies any other failure policy than :requeue, after nack! is called
      on the queue backend"))
 
 (defn make-qtask
@@ -219,25 +220,25 @@
   - `:task-config`   — task configuration map passed to `make-qtask`"
   [{:keys [queue-backend ctx task-config]}]
   (try
-    (when-let [raw-task (dequeue! queue-backend)]
+    (when-let [raw-task (dequeue! queue-backend ctx)]
       (let [task (make-qtask (merge task-config {:task raw-task}))]
         (if (ready? task ctx)
           (let [{:keys [status result err]} (task-handler task ctx)]
             (if (= status :completed)
-              (do (on-complete! task ctx result)
-                  (ack! queue-backend task))
+              (do (ack! queue-backend task ctx)
+                  (on-complete! task ctx result))
               (let [{:keys [action requeue-opts]
                      :as   failure-policy} (get-failure-policy task ctx err)]
                 (if (= action :requeue)
-                  (requeue! queue-backend task requeue-opts)
+                  (requeue! queue-backend task requeue-opts ctx)
                   (do
-                    (on-failure! task ctx failure-policy err)
-                    (nack! queue-backend task))))))
+                    (nack! queue-backend task ctx)
+                    (on-failure! task ctx failure-policy err))))))
           (let [{:keys [action requeue-opts]
                  :as   unreadiness-policy} (get-unreadiness-policy task ctx)]
             (if (= action :requeue)
-              (requeue! queue-backend task requeue-opts)
-              (do (on-unreadiness! task ctx unreadiness-policy)
-                  (abandon! queue-backend task)))))))
+              (requeue! queue-backend task requeue-opts ctx)
+              (do (abandon! queue-backend task ctx)
+                  (on-unreadiness! task ctx unreadiness-policy)))))))
     (catch Throwable t
       (on-unexpected-error! queue-backend ctx t))))

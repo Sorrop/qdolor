@@ -7,7 +7,8 @@
             [qdolor.core :as qd.core]
             [qdolor.core-async-test :as ca.test]
             [qdolor.errors-test :as er.test]
-            [qdolor.test-utils :as t.utils]))
+            [qdolor.test-utils :as t.utils]
+            [qdolor.pg-test :as pg.test]))
 
 (def example-tasks
   [{:id :a :depends-on [:b :c]}
@@ -267,3 +268,55 @@
         (is (= phase (get-in @db [:injected-error :phase])))
         (is (= (first task-set)
                (get-in @db [:injected-error :task])))))))
+
+(deftest pg-queue-test
+  (testing "Postgres serial execution"
+    (let [total-tasks        50
+          {:keys [container
+                  jdbc-url]} (t.utils/set-up-pg total-tasks)
+          q-backend          (-> (pg.test/qbackend-conf jdbc-url)
+                                 qd.core/make-qbackend)
+          ctx                {:conn-store  {:serial (atom nil)}
+                              :task-sleeps 200
+                              :worker      :serial
+                              :jdbc-url    jdbc-url}
+          task-conf          pg.test/task-conf]
+      (doseq [_ (range total-tasks)]
+         (qdolor.core/worker-loop
+           {:queue-backend q-backend
+            :ctx           ctx
+            :task-config   task-conf}))
+      (let [results (->> (pg.test/db-results jdbc-url)
+                         (map :finished_at))]
+        (is (true? (every? some? results)))
+        (is (= total-tasks (count results)))
+        (is (true? (pg.test/queue-empty? jdbc-url))))
+       (t.utils/log "Sequential execution from pg backed queue finished")
+       (.stop (-> container :container))))
+
+  (testing "Postgres core async based"
+    (let [total-tasks        50
+          num-workers        4
+          {:keys [container
+                  jdbc-url]} (t.utils/set-up-pg total-tasks)  
+          q-backend          (-> (pg.test/qbackend-conf jdbc-url)
+                                 qd.core/make-qbackend)
+          ctx                {:conn-store  (->> (mapv atom (range num-workers))
+                                                (zipmap (range num-workers)))
+                              :task-sleeps 200
+                              :jdbc-url    jdbc-url}
+          worker-pool        (qd.async/async-worker-pool
+                               {:queue-backend    q-backend
+                                :task-config      pg.test/task-conf
+                                :num-workers      num-workers
+                                :poll-interval-ms 50})]
+      (.start! worker-pool ctx)
+      (Thread/sleep 4500)
+      (let [results (->> (pg.test/db-results jdbc-url)
+                         (map :finished_at))]
+        (is (true? (every? some? results)))
+        (is (= total-tasks (count results)))
+        (is (true? (pg.test/queue-empty? jdbc-url))))
+      (t.utils/log "Core async worker pool with pg backed queue finished")
+      (.stop! worker-pool)
+      (.stop (-> container :container)))))
