@@ -118,7 +118,7 @@
      (let [{:keys [task-sleeps]} ctx
            db-conn @(resolve-conn ctx)
            id (.task-id this)]
-       (init-result db-conn id)      
+       (init-result db-conn id)
        
        (Thread/sleep task-sleeps)
        {:status :success}))
