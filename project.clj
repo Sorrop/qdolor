@@ -1,4 +1,4 @@
-(defproject net.clojars.sorrop/qdolor "0.2.1-SNAPSHOT"
+(defproject net.clojars.sorrop/qdolor "0.2.1"
   :description "Toolset for queue based execution by concurrent workers"
   :url "https://github.com/Sorrop/qdolor"
 
