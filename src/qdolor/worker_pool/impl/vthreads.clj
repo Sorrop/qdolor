@@ -12,11 +12,11 @@
 (defn- vt-worker
   "Returns a `Runnable` that polls the queue on a fixed interval until
   `stop-signal` is set to `:shutdown`."
-  [{:keys [poll-interval-ms stop-signal queue-backend ctx task-config]}]
+  [{:keys [poll-interval-ms stop-signal queue-backend ctx task-config worker-loop-fn]}]
   (fn []
     (while (not= @stop-signal :shutdown)
       (Thread/sleep poll-interval-ms)
-      (qd/worker-loop
+      (worker-loop-fn
         {:queue-backend queue-backend
          :ctx           ctx
          :task-config   task-config}))))
@@ -24,7 +24,7 @@
 (defn- get-vt-workers
   "Submits `num-workers` worker runnables to `executor`. Returns a vector of
   futures."
-  [{:keys [executor queue-backend task-config num-workers ctx stop-signal poll-interval-ms]}]
+  [{:keys [executor queue-backend task-config num-workers ctx stop-signal poll-interval-ms worker-loop-fn]}]
   (reduce (fn [acc i]
             (->> (.submit executor
                           (vt-worker
@@ -32,7 +32,8 @@
                              :task-config      task-config
                              :poll-interval-ms poll-interval-ms
                              :stop-signal      stop-signal
-                             :ctx              (merge {:worker i} ctx)}))
+                             :ctx              (merge {:worker i} ctx)
+                             :worker-loop-fn   worker-loop-fn}))
                  (conj acc)))
           []
           (range num-workers)))
@@ -65,6 +66,7 @@
      num-workers
      poll-interval-ms
      backend-opt
+     worker-loop-fn
      ^:volatile-mutable workers
      ^:volatile-mutable stop-signal
      ^:volatile-mutable executor]
@@ -81,7 +83,8 @@
                          :num-workers      num-workers
                          :ctx              ctx
                          :stop-signal      stop-signal
-                         :poll-interval-ms poll-interval-ms})]
+                         :poll-interval-ms poll-interval-ms
+                         :worker-loop-fn   worker-loop-fn})]
       (set! (.-stop-signal this) stop-signal)
       (set! (.-executor this) executor)
       (set! (.-workers this) workers)))
@@ -105,18 +108,23 @@
   - `:num-workers`      — number of concurrent workers
   - `:poll-interval-ms` — milliseconds to sleep between queue polls (default 1000)
   - `:backend-opt`      — pass `:platform-threads` to force a fixed daemon
-                          thread pool, e.g. on JDK < 21"
+                          thread pool, e.g. on JDK < 21
+  - `:worker-loop-fn`   - A function that will be called on each worker iteration
+                          Defaults to qdolor.core/default-worker-loop"
   [{:keys [queue-backend
            task-config
            num-workers
            poll-interval-ms
-           backend-opt]
-    :or   {poll-interval-ms 1000}}]
+           backend-opt
+           worker-loop-fn]
+    :or   {poll-interval-ms 1000
+           worker-loop-fn   qd/default-worker-loop}}]
   (->VTWorkerPool queue-backend
                   task-config
                   num-workers
                   poll-interval-ms
                   backend-opt
+                  worker-loop-fn
                   nil
                   nil
                   nil))

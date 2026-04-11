@@ -12,7 +12,7 @@ How tasks are produced and what queue system backs the queue are left entirely t
 Add to your `project.clj` dependencies:
 
 ```clojure
-[net.clojars.sorrop/qdolor "0.2.0"]
+[net.clojars.sorrop/qdolor "0.2.1"]
 ```
 
 ## Concepts
@@ -27,7 +27,8 @@ The connection to your queue system. Defined via the `QBackend` protocol or cons
 Runs N concurrent workers, each repeatedly polling the queue and processing tasks. Two implementations are provided: one backed by `core.async` io-threads, one by Java virtual (or platform) threads.
 
 ### Worker loop
-The library provided execution cycle.
+A function that will be executed on each worker iteration. The library provides a default one, that makes use of `QTask` and `QBackend` protocols. The user can provide their own implementation
+to the provided core async and thread based worker pools.
 
 ## Usage
 
@@ -258,7 +259,10 @@ for a given queue backend. This can be achieved by offering your own implementat
 - `QTask` — implement directly if `make-qtask` is too constraining
 - `WorkerPool` — implement to provide a custom concurrency strategy
 
-
+Moreover, you can provide your own worker loop function as input to one of the 2 worker pool implementation provided. The worker-loop function takes a single map as argument with keys:
+- `:ctx`: A context map
+- `:queue-backed`: The output of `qdolor.core/make-qbackend`
+- `:task-config`: A map that will be passed to `qdolor.core/make-qtask`
 
 ## License
 

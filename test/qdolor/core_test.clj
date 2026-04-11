@@ -83,7 +83,7 @@
                           :completion-interval 10000})]
       (loop [all-tasks (vals @(:db exec-ctx))]
         (when-not (tasks-finished? all-tasks)
-          (qd.core/worker-loop
+          (qd.core/default-worker-loop
             {:queue-backend q-backend
              :ctx exec-ctx
              :task-config ca.test/task-conf})
@@ -100,7 +100,7 @@
                           :task-sleeps 1})]
       (loop [all-tasks (vals @(:db exec-ctx))]
         (when-not (tasks-finished? all-tasks)
-          (qd.core/worker-loop
+          (qd.core/default-worker-loop
             {:queue-backend q-backend
              :ctx exec-ctx
              :task-config ca.test/task-conf})
@@ -282,7 +282,7 @@
                               :jdbc-url    jdbc-url}
           task-conf          pg.test/task-conf]
       (doseq [_ (range total-tasks)]
-         (qdolor.core/worker-loop
+         (qdolor.core/default-worker-loop
            {:queue-backend q-backend
             :ctx           ctx
             :task-config   task-conf}))

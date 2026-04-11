@@ -210,7 +210,7 @@
       {:status :errored
        :err    t})))
 
-(defn worker-loop
+(defn default-worker-loop
   "Executes one iteration of the worker loop against the given queue backend.
 
   Accepts a map with:
