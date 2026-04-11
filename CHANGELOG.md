@@ -1,5 +1,9 @@
 
-## 0.2.0 - 2026 - 04 -08
+## 0.2.1 - 2026-04-11
+- Add `:worker-loop-fn` parameter to core async and thread based worker pool
+  implementations  with fall back to existing one as default
+
+## 0.2.0 - 2026-04-08
 **BREAKING** 
 - `QBackend` methods have queue object as first argument and ctx as last
 
